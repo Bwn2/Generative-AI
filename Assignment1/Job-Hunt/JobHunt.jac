@@ -2,7 +2,7 @@ import from byllm.llm { Model }
 
 glob llm = Model(model_name="gemini/gemini-2.5-flash", verbose=False);
 
-def emplomen_advice(industry: str, location: str, experience: str) -> str by llm();
+def employment_advice(industry: str, location: str, experience: str) -> str by llm();
 def market_trends(industry: str, region: str, scale: str) -> str by llm();
 def skill_development_recommendations(industry: str, role: str, goals: str) -> str by llm();
 def resume_building_tips(industry: str, experience: str, skills: str) -> str by llm();
@@ -49,7 +49,7 @@ with entry:__main__ {
     );
     
     print("=== EMPLOYMENT ADVICE ===");
-    employment_advice = emplomen_advice(industry, location, experience);
+    employment_advice = employment_advice(industry, location, experience);
     print(employment_advice);
     
     print("\n=== MARKET TRENDS ===");

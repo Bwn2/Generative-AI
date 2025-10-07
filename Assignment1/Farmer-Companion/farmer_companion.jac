@@ -1,9 +1,7 @@
 import from byllm.llm { Model }
 
-# Connect to Gemini
 glob llm = Model(model_name="gemini/gemini-2.5-flash", verbose=False);
 
-# Farming abilities with specific contexts
 def analyze_farm_soil(soil_type: str, location: str, crops: str) -> str by llm();
 def diagnose_crop_issue(symptoms: str, crop: str, weather: str) -> str by llm();
 def suggest_planting_schedule(region: str, season: str, experience: str) -> str by llm();
