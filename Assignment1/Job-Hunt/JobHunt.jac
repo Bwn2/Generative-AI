@@ -19,7 +19,9 @@ walker UserProfile {
     has skills: str;
     has goals: str;
     
-    can start with `root entry;
+    can start with `root entry {
+print("UserProfile walker initialized!");
+    }
 }
 with entry:__main__ {
     print("👔 Welcome to EmploMen Career Companion! 👔");
@@ -49,8 +51,8 @@ with entry:__main__ {
     );
     
     print("=== EMPLOYMENT ADVICE ===");
-    employment_advice = employment_advice(industry, location, experience);
-    print(employment_advice);
+    advice = employment_advice(industry, location, experience);
+    print(advice);
     
     print("\n=== MARKET TRENDS ===");
     trends = market_trends(industry, location, "local");
