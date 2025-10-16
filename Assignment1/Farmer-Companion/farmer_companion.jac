@@ -21,7 +21,9 @@ walker FarmerProfile {
     has crop: str;
     has symptoms: str;
     
-    can start with `root entry;
+    can start with `root entry{
+      print("UserProfile walker initialized!");
+    }
 }
 
 with entry:__main__ {
