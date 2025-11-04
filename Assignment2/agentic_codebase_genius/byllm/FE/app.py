@@ -27,7 +27,6 @@ st.markdown("""
         border-bottom: 1px solid #eee;
     }
     
-    /* Enhanced chat layout from Lecs */
     .chat-wrapper {
         display: flex;
         flex-direction: column;
@@ -44,7 +43,6 @@ st.markdown("""
         scroll-behavior: smooth;
     }
     
-    /* Better scrollbar from Lecs */
     .chat-scroll::-webkit-scrollbar { width: 8px; }
     .chat-scroll::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
     .chat-scroll::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
@@ -59,21 +57,31 @@ BASE_URL = "http://localhost:8000"
 TASK_MANAGER_ENDPOINT = f"{BASE_URL}/walker/task_manager"
 GET_ALL_TASKS_ENDPOINT = f"{BASE_URL}/walker/get_all_tasks"
 
-# --- ROBUST SESSION STATE ---
-if "session_id" not in st.session_state:
-    st.session_state.session_id = ""
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
-if "_reload_tasks_once" not in st.session_state:
-    st.session_state._reload_tasks_once = True
+# --- SESSION STATE ---
+def initialize_session_state():
+    if "session_id" not in st.session_state:
+        st.session_state.session_id = ""
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
+    if "_reload_tasks_once" not in st.session_state:
+        st.session_state._reload_tasks_once = True
+
+initialize_session_state()
 
 # --- SIDEBAR ---
 with st.sidebar:
     st.title("🧭 Session Controls")
+    
     if st.button("🆕 Start New Chat"):
         st.session_state.session_id = ""
         st.session_state.chat_history = []
         st.success("New chat session started!")
+    
+    st.markdown("---")
+    st.markdown("### 📋 Current Tasks")
+    if st.button("🔄 Refresh Tasks"):
+        st.session_state._reload_tasks_once = True
+        st.rerun()
 
 # --- MAIN INTERFACE ---
 st.title("📬 AI Task & Email Manager")
@@ -83,33 +91,27 @@ tab1, tab2 = st.tabs(["💬 Chat", "📅 Scheduled Tasks"])
 #       CHAT INTERFACE
 # ========================
 with tab1:
-
+    # Display chat messages
     chat_container = st.container()
     with chat_container:
-        messages_container = st.container()
-        with messages_container:
-            st.markdown('<div id="chat-scroll" class="chat-scroll">', unsafe_allow_html=True)
-            for msg in st.session_state.chat_history:
-                with st.chat_message(msg["role"]):
-                    st.markdown(msg["content"])
-            st.markdown("</div>", unsafe_allow_html=True)
-        
-        # Auto-scroll
-        if st.session_state.chat_history:
-            components_html("""
-            <script>
-            setTimeout(() => {
-                const el = window.parent.document.getElementById('chat-scroll');
-                if (el) el.scrollTop = el.scroll.scrollHeight;
-            }, 100);
-            </script>
-            """, height=0)
+        for msg in st.session_state.chat_history:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
+    
+    # Auto-scroll to bottom
+    if st.session_state.chat_history:
+        components_html("""
+        <script>
+            window.parent.document.querySelector('.chat-scroll').scrollTop = 
+            window.parent.document.querySelector('.chat-scroll').scrollHeight;
+        </script>
+        """, height=0)
 
     # Chat input
     user_input = st.chat_input("Ask me to create a task, send an email, or just chat...")
     
-    # Enhanced message handling 
     if user_input:
+        # Add user message to chat history
         st.session_state.chat_history.append({"role": "user", "content": user_input})
         
         payload = {
@@ -119,26 +121,37 @@ with tab1:
         
         with st.spinner("🤔 Thinking..."):
             try:
-                # Add timeout 
-                res = requests.post(TASK_MANAGER_ENDPOINT, json=payload, timeout=30)
-                if res.status_code == 200:
-                    data = res.json()
+                response = requests.post(TASK_MANAGER_ENDPOINT, json=payload, timeout=30)
+                
+                if response.status_code == 200:
+                    data = response.json()
                     reports = data.get("reports", [])
+                    
                     if reports:
                         report = reports[0]
-                        response = report.get("response", "No response text found.")
+                        ai_response = report.get("response", "I apologize, but I couldn't process your request.")
                         session_id = report.get("session_id", "")
+                        
                         if session_id:
                             st.session_state.session_id = session_id
-                        st.session_state.chat_history.append({"role": "assistant", "content": response})
+                        
+                        st.session_state.chat_history.append({
+                            "role": "assistant", 
+                            "content": ai_response
+                        })
+                        st.session_state._reload_tasks_once = True
                     else:
-                        st.error("⚠️ No valid response received from backend.")
+                        st.error("⚠️ No response data received from the assistant.")
+                        
                 else:
-                    st.error(f"❌ Backend returned error {res.status_code}")
+                    st.error(f"❌ Backend error {response.status_code}: {response.text}")
+                    
             except requests.exceptions.ConnectionError:
-                st.error("⚠️ Unable to connect to backend. Make sure it's running on port 8000.")
+                st.error("🔌 Cannot connect to backend. Please ensure the Jaseci server is running on port 8000.")
+            except requests.exceptions.Timeout:
+                st.error("⏰ Request timed out. Please try again.")
             except Exception as e:
-                st.error(f"Unexpected error: {e}")
+                st.error(f"❌ Unexpected error: {str(e)}")
         
         st.rerun()
 
@@ -148,36 +161,52 @@ with tab1:
 with tab2:
     st.header("📋 All Scheduled Tasks")
     
-    col1, _ = st.columns([1, 3])
-    with col1:
-        refresh = st.button("🔄 Refresh")
+    if st.button("🔄 Refresh Tasks", key="refresh_tasks"):
+        st.session_state._reload_tasks_once = True
     
-    should_load = st.session_state.get("_reload_tasks_once", True) or refresh
-    if should_load:
+    if st.session_state._reload_tasks_once:
         with st.spinner("Fetching tasks..."):
             try:
-                res = requests.post(GET_ALL_TASKS_ENDPOINT)
-                if res.status_code == 200:
-                    data = res.json()
+                response = requests.post(GET_ALL_TASKS_ENDPOINT, timeout=10)
+                
+                if response.status_code == 200:
+                    data = response.json()
                     reports = data.get("reports", [])
-                    tasks = reports[0] if reports and isinstance(reports[0], list) else []
-                    if tasks:
-                        flat_tasks = []
-                        for t in tasks:
-                            ctx = t.get("context", {})
-                            flat_tasks.append({
-                                "Task": ctx.get("task", ""),
-                                "Date": ctx.get("date", ""),
-                                "Time": ctx.get("time", ""),
-                                "Status": ctx.get("status", "")
-                            })
-                        df = pd.DataFrame(flat_tasks)
-                        st.dataframe(df, use_container_width=True, hide_index=True)
+                    
+                    if reports and isinstance(reports, list) and len(reports) > 0:
+                        tasks_data = reports[0] if isinstance(reports[0], list) else []
+                        
+                        if tasks_data:
+                            # Create DataFrame
+                            df = pd.DataFrame(tasks_data)
+                            
+                            # Display tasks
+                            st.dataframe(
+                                df, 
+                                use_container_width=True, 
+                                hide_index=True,
+                                column_config={
+                                    "task": "Task Description",
+                                    "date": "Date",
+                                    "time": "Time", 
+                                    "status": "Status",
+                                    "created_at": "Created At"
+                                }
+                            )
+                            
+                            # Summary
+                            st.metric("Total Tasks", len(df))
+                        else:
+                            st.info("🎉 No scheduled tasks found. Start by saying 'Schedule a meeting tomorrow at 2 PM'")
                     else:
-                        st.info("✅ No scheduled tasks found.")
+                        st.info("📝 No task data available.")
+                        
                 else:
-                    st.error(f"Backend returned {res.status_code}")
+                    st.error(f"Failed to fetch tasks: {response.status_code}")
+                    
+            except requests.exceptions.ConnectionError:
+                st.error("Cannot connect to backend to fetch tasks.")
             except Exception as e:
-                st.error(f"Error fetching tasks: {e}")
+                st.error(f"Error fetching tasks: {str(e)}")
         
         st.session_state._reload_tasks_once = False
