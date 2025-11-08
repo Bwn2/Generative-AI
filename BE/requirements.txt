@@ -1,4 +1,4 @@
-jacython
+jaclang
 requests
 openai
 python-dotenv
