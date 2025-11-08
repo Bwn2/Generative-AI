@@ -1,9 +1,0 @@
-byllm
-jac-cloud
-jaseci
-jaseci-ai-kit
-jaseci-serv
-streamlit
-requests
-pandas
-python-dotenv
