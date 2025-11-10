@@ -1,8 +1,0 @@
-jaclang
-requests
-openai
-python-dotenv
-streamlit
-gitpython
-tree-sitter
-tree-sitter-python
